@@ -2,7 +2,7 @@
 
 ## Fork Motivation
 
-In the standard way we use this package, we to overwrite the fields even if they are not zero value.
+In the standard way we use this package, we want to overwrite the fields even if they are not zero value.
 
 The pre-fork way of doing it is adding an `overwrite` tag to all the fields of all the structs we use.
 
