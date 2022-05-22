@@ -83,13 +83,13 @@ import (
 const (
 	envTag = "env"
 
-	optDefault   = "default="
-	optDelimiter = "delimiter="
-	optNoInit    = "noinit"
-	optOverwrite = "overwrite"
-	optPrefix    = "prefix="
-	optRequired  = "required"
-	optSeparator = "separator="
+	optDefault     = "default="
+	optDelimiter   = "delimiter="
+	optNoInit      = "noinit"
+	optNoOverwrite = "nooverwrite"
+	optPrefix      = "prefix="
+	optRequired    = "required"
+	optSeparator   = "separator="
 
 	defaultDelimiter = ","
 	defaultSeparator = ":"
@@ -220,13 +220,13 @@ type MutatorFunc func(ctx context.Context, k, v string) (string, error)
 
 // options are internal options for decoding.
 type options struct {
-	Default   string
-	Delimiter string
-	Prefix    string
-	Separator string
-	NoInit    bool
-	Overwrite bool
-	Required  bool
+	Default     string
+	Delimiter   string
+	Prefix      string
+	Separator   string
+	NoInit      bool
+	NoOverwrite bool
+	Required    bool
 }
 
 // Process processes the struct using the environment. See ProcessWith for a
@@ -362,8 +362,8 @@ func ProcessWith(ctx context.Context, i interface{}, l Lookuper, fns ...MutatorF
 			continue
 		}
 
-		// The field already has a non-zero value and overwrite is false, do not overwrite.
-		if !ef.IsZero() && !opts.Overwrite {
+		// The field already has a non-zero value and nooverwrite is false, do overwrite.
+		if !ef.IsZero() && opts.NoOverwrite {
 			continue
 		}
 
@@ -418,8 +418,8 @@ LOOP:
 	for i, o := range tagOpts {
 		o = strings.TrimSpace(o)
 		switch {
-		case o == optOverwrite:
-			opts.Overwrite = true
+		case o == optNoOverwrite:
+			opts.NoOverwrite = true
 		case o == optRequired:
 			opts.Required = true
 		case o == optNoInit:

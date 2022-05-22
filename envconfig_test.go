@@ -95,6 +95,20 @@ type Quark struct {
 	Value int8 `env:"QUARK_VALUE"`
 }
 
+type NoElectron struct {
+	Name   string `env:"ELECTRON_NAME,nooverwrite"`
+	Lepton *NoLepton
+}
+
+type NoLepton struct {
+	Name  string `env:"LEPTON_NAME,nooverwrite"`
+	Quark *NoQuark
+}
+
+type NoQuark struct {
+	Value int8 `env:"QUARK_VALUE,nooverwrite"`
+}
+
 // Sandwich > Bread > Meat
 type Sandwich struct {
 	Name  string `env:"SANDWICH_NAME"`
@@ -787,34 +801,34 @@ func TestProcessWith(t *testing.T) {
 			err: ErrPrivateField,
 		},
 
-		// Overwrite
+		// NoOverwrite
 		{
-			name: "overwrite/present",
+			name: "nooverwrite/present",
 			input: &struct {
-				Field string `env:"FIELD,overwrite"`
+				Field string `env:"FIELD,nooverwrite"`
 			}{
 				Field: "hello world",
 			},
 			exp: &struct {
-				Field string `env:"FIELD,overwrite"`
+				Field string `env:"FIELD,nooverwrite"`
 			}{
-				Field: "foo",
+				Field: "hello world",
 			},
 			lookuper: MapLookuper(map[string]string{
 				"FIELD": "foo",
 			}),
 		},
 		{
-			name: "overwrite/present_space",
+			name: "nooverwrite/present_space",
 			input: &struct {
-				Field string `env:"FIELD, overwrite"`
+				Field string `env:"FIELD, nooverwrite"`
 			}{
 				Field: "hello world",
 			},
 			exp: &struct {
-				Field string `env:"FIELD, overwrite"`
+				Field string `env:"FIELD, nooverwrite"`
 			}{
-				Field: "foo",
+				Field: "hello world",
 			},
 			lookuper: MapLookuper(map[string]string{
 				"FIELD": "foo",
@@ -1447,7 +1461,7 @@ func TestProcessWith(t *testing.T) {
 
 		// Overwriting
 		{
-			name: "no_overwrite/structs",
+			name: "do_overwrite/structs",
 			input: &Electron{
 				Name: "original",
 				Lepton: &Lepton{
@@ -1458,10 +1472,76 @@ func TestProcessWith(t *testing.T) {
 				},
 			},
 			exp: &Electron{
-				Name: "original",
+				Name: "shocking",
 				Lepton: &Lepton{
-					Name: "original",
+					Name: "tea?",
 					Quark: &Quark{
+						Value: 2,
+					},
+				},
+			},
+			lookuper: MapLookuper(map[string]string{
+				"ELECTRON_NAME": "shocking",
+				"LEPTON_NAME":   "tea?",
+				"QUARK_VALUE":   "2",
+			}),
+		},
+		{
+			name: "do_overwrite/pointers",
+			input: &struct {
+				Field *string `env:"FIELD"`
+			}{
+				Field: func() *string { s := "bar"; return &s }(),
+			},
+			exp: &struct {
+				Field *string `env:"FIELD"`
+			}{
+				Field: func() *string { s := "foo"; return &s }(),
+			},
+			lookuper: MapLookuper(map[string]string{
+				"FIELD": "foo",
+			}),
+		},
+		{
+			name: "do_overwrite/pointers_pointers",
+			input: &struct {
+				Field **string `env:"FIELD"`
+			}{
+				Field: func() **string {
+					s := "bar"
+					ptr := &s
+					return &ptr
+				}(),
+			},
+			exp: &struct {
+				Field **string `env:"FIELD"`
+			}{
+				Field: func() **string {
+					s := "foo"
+					ptr := &s
+					return &ptr
+				}(),
+			},
+			lookuper: MapLookuper(map[string]string{
+				"FIELD": "foo",
+			}),
+		},
+		{
+			name: "no_overwrite/structs",
+			input: &NoElectron{
+				Name: "original",
+				Lepton: &NoLepton{
+					Name: "original",
+					Quark: &NoQuark{
+						Value: 1,
+					},
+				},
+			},
+			exp: &NoElectron{
+				Name: "original",
+				Lepton: &NoLepton{
+					Name: "original",
+					Quark: &NoQuark{
 						Value: 1,
 					},
 				},
@@ -1475,12 +1555,12 @@ func TestProcessWith(t *testing.T) {
 		{
 			name: "no_overwrite/pointers",
 			input: &struct {
-				Field *string `env:"FIELD"`
+				Field *string `env:"FIELD,nooverwrite"`
 			}{
 				Field: func() *string { s := "bar"; return &s }(),
 			},
 			exp: &struct {
-				Field *string `env:"FIELD"`
+				Field *string `env:"FIELD,nooverwrite"`
 			}{
 				Field: func() *string { s := "bar"; return &s }(),
 			},
@@ -1491,7 +1571,7 @@ func TestProcessWith(t *testing.T) {
 		{
 			name: "no_overwrite/pointers_pointers",
 			input: &struct {
-				Field **string `env:"FIELD"`
+				Field **string `env:"FIELD,nooverwrite"`
 			}{
 				Field: func() **string {
 					s := "bar"
@@ -1500,7 +1580,7 @@ func TestProcessWith(t *testing.T) {
 				}(),
 			},
 			exp: &struct {
-				Field **string `env:"FIELD"`
+				Field **string `env:"FIELD,nooverwrite"`
 			}{
 				Field: func() **string {
 					s := "bar"

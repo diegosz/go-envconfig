@@ -1,4 +1,4 @@
-module github.com/sethvargo/go-envconfig
+module github.com/diegosz/go-envconfig
 
 go 1.17
 
