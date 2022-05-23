@@ -235,9 +235,23 @@ func Process(ctx context.Context, i interface{}) error {
 	return ProcessWith(ctx, i, OsLookuper())
 }
 
+// PreProcessWith processes the given interface with the given lookuper. See the
+// package-level documentation for specific examples and behaviors.
+//
+// It does not fail on missing required.
+func PreProcessWith(ctx context.Context, i interface{}, l Lookuper, fns ...MutatorFunc) error {
+	return processWith(ctx, i, l, true, fns...)
+}
+
 // ProcessWith processes the given interface with the given lookuper. See the
 // package-level documentation for specific examples and behaviors.
+//
+// It fails on the first missing required.
 func ProcessWith(ctx context.Context, i interface{}, l Lookuper, fns ...MutatorFunc) error {
+	return processWith(ctx, i, l, false, fns...)
+}
+
+func processWith(ctx context.Context, i interface{}, l Lookuper, skipRequired bool, fns ...MutatorFunc) error {
 	if l == nil {
 		return ErrLookuperNil
 	}
@@ -324,7 +338,7 @@ func ProcessWith(ctx context.Context, i interface{}, l Lookuper, fns ...MutatorF
 			// Lookup the value, ignoring an error if the key isn't defined. This is
 			// required for nested structs that don't declare their own `env` keys,
 			// but have internal fields with an `env` defined.
-			val, err := lookup(key, opts, l)
+			val, err := lookup(key, opts, l, skipRequired)
 			if err != nil && !errors.Is(err, ErrMissingKey) {
 				return fmt.Errorf("%s: %w", tf.Name, err)
 			}
@@ -367,7 +381,7 @@ func ProcessWith(ctx context.Context, i interface{}, l Lookuper, fns ...MutatorF
 			continue
 		}
 
-		val, err := lookup(key, opts, l)
+		val, err := lookup(key, opts, l, skipRequired)
 		if err != nil {
 			return fmt.Errorf("%s: %w", tf.Name, err)
 		}
@@ -445,7 +459,7 @@ LOOP:
 }
 
 // lookup looks up the given key using the provided Lookuper and options.
-func lookup(key string, opts *options, l Lookuper) (string, error) {
+func lookup(key string, opts *options, l Lookuper, skipRequired bool) (string, error) {
 	if key == "" {
 		// The struct has something like `env:",required"`, which is likely a
 		// mistake. We could try to infer the envvar from the field name, but that
@@ -461,7 +475,7 @@ func lookup(key string, opts *options, l Lookuper) (string, error) {
 	// Lookup value.
 	val, ok := l.Lookup(key)
 	if !ok {
-		if opts.Required {
+		if opts.Required && !skipRequired {
 			if pl, ok := l.(*prefixLookuper); ok {
 				key = pl.prefix + key
 			}
