@@ -357,7 +357,7 @@ func processWith(ctx context.Context, i interface{}, l Lookuper, skipRequired bo
 				plu = PrefixLookuper(opts.Prefix, l)
 			}
 
-			if err := ProcessWith(ctx, ef.Interface(), plu, fns...); err != nil {
+			if err := processWith(ctx, ef.Interface(), plu, skipRequired, fns...); err != nil {
 				return fmt.Errorf("%s: %w", tf.Name, err)
 			}
 
