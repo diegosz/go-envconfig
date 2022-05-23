@@ -8,7 +8,7 @@ The pre-fork way of doing it is adding an `overwrite` tag to all the fields of a
 
 Instead of doing that, with this fork, we mutate the `overwrite` tag into `nooverwrite` tag and reverse the logic so by default it will overwrite the fields even if they are not zero value, unless they have the `nooverwrite` tag.
 
-¯\\_(ツ)_/¯
+Another change is that we need a PreProcessWith method that does not stop the process on missing required fields.
 
 ## TODO
 
