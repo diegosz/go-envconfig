@@ -240,7 +240,7 @@ func Process(ctx context.Context, i interface{}) error {
 //
 // It does not fail on missing required.
 func PreProcessWith(ctx context.Context, i interface{}, l Lookuper, fns ...MutatorFunc) error {
-	return processWith(ctx, i, l, true, fns...)
+	return processWith(ctx, i, l, false, true, fns...)
 }
 
 // ProcessWith processes the given interface with the given lookuper. See the
@@ -248,10 +248,12 @@ func PreProcessWith(ctx context.Context, i interface{}, l Lookuper, fns ...Mutat
 //
 // It fails on the first missing required.
 func ProcessWith(ctx context.Context, i interface{}, l Lookuper, fns ...MutatorFunc) error {
-	return processWith(ctx, i, l, false, fns...)
+	return processWith(ctx, i, l, false, false, fns...)
 }
 
-func processWith(ctx context.Context, i interface{}, l Lookuper, skipRequired bool, fns ...MutatorFunc) error {
+// processWith is a helper that captures whether the parent wanted
+// initialization.
+func processWith(ctx context.Context, i interface{}, l Lookuper, parentNoInit, skipRequired bool, fns ...MutatorFunc) error {
 	if l == nil {
 		return ErrLookuperNil
 	}
@@ -300,11 +302,11 @@ func processWith(ctx context.Context, i interface{}, l Lookuper, skipRequired bo
 			origin := e.Field(i)
 			if isNilStructPtr {
 				empty := reflect.New(origin.Type().Elem()).Interface()
-				// If a struct (after traversal) equals to the empty value,
-				// it means nothing was changed in any sub-fields.
-				// With the noinit opt, we skip setting the empty value
-				// to the original struct pointer (aka. keep it nil).
-				if !reflect.DeepEqual(v.Interface(), empty) || !opts.NoInit {
+				// If a struct (after traversal) equals to the empty value, it means
+				// nothing was changed in any sub-fields. With the noinit opt, we skip
+				// setting the empty value to the original struct pointer (aka. keep it
+				// nil).
+				if !reflect.DeepEqual(v.Interface(), empty) || (!opts.NoInit && !parentNoInit) {
 					origin.Set(v)
 				}
 			}
@@ -357,7 +359,7 @@ func processWith(ctx context.Context, i interface{}, l Lookuper, skipRequired bo
 				plu = PrefixLookuper(opts.Prefix, l)
 			}
 
-			if err := processWith(ctx, ef.Interface(), plu, skipRequired, fns...); err != nil {
+			if err := processWith(ctx, ef.Interface(), plu, opts.NoInit, skipRequired, fns...); err != nil {
 				return fmt.Errorf("%s: %w", tf.Name, err)
 			}
 
@@ -408,7 +410,7 @@ func processWith(ctx context.Context, i interface{}, l Lookuper, skipRequired bo
 		}
 
 		// Set value.
-		if err := processField(val, ef, opts.Delimiter, opts.Separator); err != nil {
+		if err := processField(val, ef, opts.Delimiter, opts.Separator, opts.NoInit); err != nil {
 			return fmt.Errorf("%s(%q): %w", tf.Name, val, err)
 		}
 	}
@@ -558,7 +560,12 @@ func processAsDecoder(v string, ef reflect.Value) (bool, error) {
 	return imp, err
 }
 
-func processField(v string, ef reflect.Value, delimiter, separator string) error {
+func processField(v string, ef reflect.Value, delimiter, separator string, noInit bool) error {
+	// If the input value is empty and initialization is skipped, do nothing.
+	if v == "" && noInit {
+		return nil
+	}
+
 	// Handle pointers and uninitialized pointers.
 	for ef.Type().Kind() == reflect.Ptr {
 		if ef.IsNil() {
@@ -641,12 +648,12 @@ func processField(v string, ef reflect.Value, delimiter, separator string) error
 			mKey, mVal := strings.TrimSpace(pair[0]), strings.TrimSpace(pair[1])
 
 			k := reflect.New(tf.Key()).Elem()
-			if err := processField(mKey, k, delimiter, separator); err != nil {
+			if err := processField(mKey, k, delimiter, separator, noInit); err != nil {
 				return fmt.Errorf("%s: %w", mKey, err)
 			}
 
 			v := reflect.New(tf.Elem()).Elem()
-			if err := processField(mVal, v, delimiter, separator); err != nil {
+			if err := processField(mVal, v, delimiter, separator, noInit); err != nil {
 				return fmt.Errorf("%s: %w", mVal, err)
 			}
 
@@ -664,7 +671,7 @@ func processField(v string, ef reflect.Value, delimiter, separator string) error
 			s := reflect.MakeSlice(tf, len(vals), len(vals))
 			for i, val := range vals {
 				val = strings.TrimSpace(val)
-				if err := processField(val, s.Index(i), delimiter, separator); err != nil {
+				if err := processField(val, s.Index(i), delimiter, separator, noInit); err != nil {
 					return fmt.Errorf("%s: %w", val, err)
 				}
 			}
