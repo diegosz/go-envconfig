@@ -18,7 +18,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	""
+	"github.com/diegosz/go-envconfig"
 )
 
 type CustomStruct struct {
