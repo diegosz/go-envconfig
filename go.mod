@@ -1,4 +1,4 @@
-module github.com/sethvargo/go-envconfig
+module 
 
 go 1.22
 
