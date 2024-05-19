@@ -106,6 +106,8 @@ type Lookuper interface {
 	// value. If a value is found, it returns the value and true. If a value is
 	// not found, it returns the empty string and false.
 	Lookup(key string) (string, bool)
+	// LookupKey returns the key used to lookup the value. It's primary used for reporting errors.
+	LookupKey(key string) string
 }
 
 // osLookuper looks up environment configuration from the local environment.
@@ -116,6 +118,10 @@ var _ Lookuper = (*osLookuper)(nil)
 
 func (o *osLookuper) Lookup(key string) (string, bool) {
 	return os.LookupEnv(key)
+}
+
+func (o *osLookuper) LookupKey(key string) string {
+	return key
 }
 
 // OsLookuper returns a lookuper that uses the environment ([os.LookupEnv]) to
@@ -131,6 +137,10 @@ var _ Lookuper = (*mapLookuper)(nil)
 func (m mapLookuper) Lookup(key string) (string, bool) {
 	v, ok := m[key]
 	return v, ok
+}
+
+func (m mapLookuper) LookupKey(key string) string {
+	return key
 }
 
 // MapLookuper looks up environment configuration from a provided map. This is
@@ -155,6 +165,10 @@ func (m *multiLookuper) Lookup(key string) (string, bool) {
 	return "", false
 }
 
+func (m *multiLookuper) LookupKey(key string) string {
+	return key
+}
+
 // PrefixLookuper looks up environment configuration using the specified prefix.
 // This is useful if you want all your variables to start with a particular
 // prefix like "MY_APP_".
@@ -172,6 +186,10 @@ type prefixLookuper struct {
 
 func (p *prefixLookuper) Lookup(key string) (string, bool) {
 	return p.l.Lookup(p.Key(key))
+}
+
+func (p *prefixLookuper) LookupKey(key string) string {
+	return p.l.LookupKey(p.Key(key))
 }
 
 func (p *prefixLookuper) Key(key string) string {
@@ -635,11 +653,11 @@ func lookup(key string, required bool, defaultValue string, l Lookuper, isPrePro
 	val, found := l.Lookup(key)
 	if !found {
 		if required && !isPreProcess {
-			if keyer, ok := l.(keyedLookuper); ok {
-				key = keyer.Key(key)
-			}
+			// if keyer, ok := l.(keyedLookuper); ok {
+			// 	key = keyer.Key(key)
+			// }
 
-			return "", false, false, fmt.Errorf("%w: %s", ErrMissingRequired, key)
+			return "", false, false, fmt.Errorf("%w: %s", ErrMissingRequired, l.LookupKey(key))
 		}
 
 		if defaultValue != "" {
